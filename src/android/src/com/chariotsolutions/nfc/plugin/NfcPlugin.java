@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.nfc.*;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.NdefFormatable;
+import android.nfc.tech.IsoDep;
 import android.os.Parcelable;
 import android.util.Log;
 import org.apache.cordova.*;
@@ -31,6 +32,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
     private static final String REGISTER_NDEF_FORMATABLE = "registerNdefFormatable";
     private static final String REGISTER_DEFAULT_TAG = "registerTag";
     private static final String WRITE_TAG = "writeTag";
+    private static final String TRANSCEIVE = "transceive";
     private static final String ERASE_TAG = "eraseTag";
     private static final String SHARE_TAG = "shareTag";
     private static final String UNSHARE_TAG = "unshareTag";
@@ -86,6 +88,9 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
 
         } else if (action.equalsIgnoreCase(WRITE_TAG)) {
             writeTag(data, callbackContext);
+
+        } else if (action.equalsIgnoreCase(TRANSCEIVE)) {
+            transceive(data, callbackContext);
 
         } else if (action.equalsIgnoreCase(ERASE_TAG)) {
             eraseTag(callbackContext);
@@ -184,6 +189,27 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         Tag tag = savedIntent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         NdefRecord[] records = Util.jsonToNdefRecords(data.getString(0));
         writeNdefMessage(new NdefMessage(records), tag, callbackContext);
+    }
+
+    private void transceive(JSONArray data, CallbackContext callbackContext) throws JSONException {
+        if (getIntent() == null) {  // TODO remove this and handle LostTag
+            callbackContext.error("Failed to write tag, received null intent");
+        }
+
+		//TODO create separate thread (see above)
+        Tag tag = savedIntent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+		IsoDep desfire = IsoDep.get(tag);
+		desfire.connect();
+
+		//TODO replace with JSONArray (using byte decode)
+		final byte[] READ_VALUE_COMMAND = new byte[]{(byte) 0x6C, (byte) 0x01};
+        final byte[] NATIVE_SELECT_COMMAND = new byte[]{(byte) 0x5A, (byte) 0x5F, (byte) 0x84, (byte) 0x15};
+        desfire.transceive(NATIVE_SELECT_COMMAND);
+        byte[] NFCresult = desfire.transceive(NATIVE_SELECT_COMMAND);
+        desfire.close();
+
+        PluginResult result = new PluginResult(PluginResult.Status.OK, NFCresult);
+		callbackContext.sendPluginResult(result);
     }
 
     private void writeNdefMessage(final NdefMessage message, final Tag tag, final CallbackContext callbackContext) {
