@@ -180,7 +180,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         };
         writeNdefMessage(new NdefMessage(records), tag, callbackContext);
     }
-    
+
     private void writeTag(JSONArray data, CallbackContext callbackContext) throws JSONException {
         if (getIntent() == null) {  // TODO remove this and handle LostTag
             callbackContext.error("Failed to write tag, received null intent");
@@ -197,6 +197,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         }
 
 		//TODO create separate thread (see above)
+        try {
         Tag tag = savedIntent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
 		IsoDep desfire = IsoDep.get(tag);
 		desfire.connect();
@@ -205,11 +206,14 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
 		final byte[] READ_VALUE_COMMAND = new byte[]{(byte) 0x6C, (byte) 0x01};
         final byte[] NATIVE_SELECT_COMMAND = new byte[]{(byte) 0x5A, (byte) 0x5F, (byte) 0x84, (byte) 0x15};
         desfire.transceive(NATIVE_SELECT_COMMAND);
-        byte[] NFCresult = desfire.transceive(NATIVE_SELECT_COMMAND);
+        byte[] NFCresult = desfire.transceive(READ_VALUE_COMMAND);
         desfire.close();
 
         PluginResult result = new PluginResult(PluginResult.Status.OK, NFCresult);
 		callbackContext.sendPluginResult(result);
+        } catch (IOException e) {
+            callbackContext.error(e.getMessage());
+        }
     }
 
     private void writeNdefMessage(final NdefMessage message, final Tag tag, final CallbackContext callbackContext) {
@@ -363,7 +367,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
                     nfcAdapter.setOnNdefPushCompleteCallback(NfcPlugin.this, getActivity());
                     try {
                         nfcAdapter.setBeamPushUris(uris, getActivity());
-                        
+
                         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
                         result.setKeepCallback(true);
                         handoverCallback = callbackContext;
@@ -562,7 +566,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         super.onPause(multitasking);
         if (multitasking) {
             // nfc can't run in background
-            stopNfc();            
+            stopNfc();
         }
     }
 
